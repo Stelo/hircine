@@ -42,5 +42,11 @@
         /// Pause Raven's indexing system while we wait
         /// </summary>
         public bool PauseIndexing { get; set; }
+
+        /// <summary>
+        /// Remove any versioned index definitions that do not match the active index as
+        /// defined in the loaded assemblies.
+        /// </summary>
+        public bool DropInactiveVersionedIndexes { get; set; }
     }
 }

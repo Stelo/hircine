@@ -8,6 +8,7 @@ using Hircine.Core.Connectivity;
 using Hircine.Core.Indexes;
 using Hircine.Core.Runtime;
 using Raven.Client;
+using Raven.Client.Extensions;
 
 namespace Hircine.Core
 {
@@ -54,10 +55,13 @@ namespace Hircine.Core
                 {
                     foreach (var connection in BuildInstructions.ConnectionStrings)
                     {
+                        var parsedConnectionString = RavenConnectionStringParser.ParseNetworkedDbOptions(connection);
+
                         var instance = _ravenInstanceFactory.GetRavenConnection(connection);
+                        instance.DatabaseCommands.EnsureDatabaseExists(parsedConnectionString.DefaultDatabase);
                         instance.Initialize();
                         instance.JsonRequestFactory.
-                            EnableBasicAuthenticationOverUnsecureHttpEvenThoughPasswordsWouldBeSentOverTheWireInClearTextToBeStolenByHackers = BuildInstructions.UseUserNamePasswordWithoutSSL;
+                            EnableBasicAuthenticationOverUnsecuredHttpEvenThoughPasswordsWouldBeSentOverTheWireInClearTextToBeStolenByHackers = BuildInstructions.UseUserNamePasswordWithoutSSL;
 
                         RavenInstances.Add(connection, instance);
                     }
@@ -200,7 +204,7 @@ namespace Hircine.Core
             {
                 //Create a new index builder
                 var indexBuilder = new IndexBuilder(ravenInstance.Value, IndexAssemblies.ToArray());
-                tasks.Add(indexBuilder.RunAsync(progressCallback));
+                tasks.Add(indexBuilder.RunAsync(BuildInstructions, progressCallback));
             }
 
             return tasks;
@@ -229,7 +233,7 @@ namespace Hircine.Core
                     if(BuildInstructions.PauseIndexing)
                         indexBuilder.StopIndexing(progressCallback);
 
-                    var buildReport = indexBuilder.Run(progressCallback);
+                    var buildReport = indexBuilder.Run(BuildInstructions, progressCallback);
                     reports.Add(buildReport);
                     if (buildReport.Failed > 0 && !BuildInstructions.ContinueJobOnFailure)
                     {

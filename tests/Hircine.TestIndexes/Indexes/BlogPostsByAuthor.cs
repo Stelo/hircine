@@ -5,6 +5,7 @@ using System.Text;
 using Hircine.TestIndexes.Models;
 using Raven.Abstractions.Indexing;
 using Raven.Client.Indexes;
+using Hircine.VersionedIndex;
 
 namespace Hircine.TestIndexes.Indexes
 {
@@ -14,6 +15,18 @@ namespace Hircine.TestIndexes.Indexes
         {
             Map = posts => from post in posts
                            select new {post.Author.Id, post.Author.Name, post.TimePosted};
+
+            Index(x => x.Author.Name, FieldIndexing.Default);
+            Sort(x => x.TimePosted, SortOptions.Custom);
+        }
+    }
+
+    public class BlogPostsByAuthorVersioned : AbstractVersionedIndexCreationTask<BlogPost>
+    {
+        public BlogPostsByAuthorVersioned()
+        {
+            Map = posts => from post in posts
+                           select new { post.Author.Id, post.Author.Name, post.TimePosted };
 
             Index(x => x.Author.Name, FieldIndexing.Default);
             Sort(x => x.TimePosted, SortOptions.Custom);

@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using Raven.Client.Indexes;
+using Hircine.VersionedIndex;
 
 namespace Hircine.Core.Runtime
 {
@@ -65,6 +66,21 @@ namespace Hircine.Core.Runtime
         {
             return targetAssembly.GetTypes()
                 .Where(x => typeof (AbstractIndexCreationTask).IsAssignableFrom(x) && !x.IsAbstract).ToList();
+        }
+
+        /// <summary>
+        /// Lists the types of all defined RavenDB versioned indexes from the assembly
+        /// </summary>
+        /// <param name="targetAssembly">The assembly containing RavenDb indexes</param>
+        /// <returns>A list of types derived from AbstractVersionedIndexCreationTask or AbstractVersionedMultiMapIndexCreationTask (base classes for defining RavenDb versioned indexes)</returns>
+        public static IList<Type> GetRavenDbVersionedIndexes(Assembly targetAssembly)
+        {
+            return targetAssembly.GetTypes()
+                .Where(x =>
+                    typeof(IVersionedIndex).IsAssignableFrom(x) &&
+                    !x.IsAbstract &&
+                    !x.IsInterface
+                ).ToList();
         }
     }
 }

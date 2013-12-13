@@ -7,6 +7,7 @@ using Hircine.Core.Indexes;
 using Hircine.Core.Runtime;
 using NUnit.Framework;
 using Raven.Client.Indexes;
+using Hircine.VersionedIndex;
 
 namespace Hircine.Core.Tests.Indexes
 {
@@ -125,6 +126,38 @@ namespace Hircine.Core.Tests.Indexes
             }
         }
 
+        public class ValidMultiMapReduceVersionedIndex : AbstractMultiMapIndexCreationTask<TotalDocumentsWithTagPerDay>
+        {
+            public ValidMultiMapReduceVersionedIndex()
+            {
+                AddMap<SimpleModel>(models => from model in models
+                                              select new
+                                              {
+                                                  Tag = model.Tag,
+                                                  Day = model.DateCreated.Date,
+                                                  Total = 1
+                                              });
+
+                AddMap<OtherSimpleModel>(models => from model in models
+                                                   select new
+                                                   {
+                                                       Tag = model.Tag,
+                                                       Day = model.DateCreated.Date,
+                                                       Total = 1
+                                                   });
+
+                Reduce = results => from result in results
+                                    group result by new { result.Day, result.Tag }
+                                        into g
+                                        select new
+                                        {
+                                            Tag = g.Key.Tag,
+                                            Day = g.Key.Day,
+                                            Total = g.Sum(x => x.Total)
+                                        };
+            }
+        }
+
         #endregion
 
         #region Tests
@@ -139,15 +172,19 @@ namespace Hircine.Core.Tests.Indexes
             var embeddedDb = _ravenInstanceFactory.GetEmbeddedInstance(runInMemory: true);
             embeddedDb.Initialize();
 
+            var databaseStats = embeddedDb.DatabaseCommands.GetStatistics();
+            var versionedIndexes = AssemblyRuntimeLoader.GetRavenDbVersionedIndexes(_indexAssembly);
+
             var indexBuilder = new IndexBuilder(embeddedDb, _indexAssembly);
             try
             {
-                var indexBuildResults = indexBuilder.Run(null);
+                var indexBuildResults = indexBuilder.Run(new IndexBuildCommand() { DropInactiveVersionedIndexes = true }, null);
                 Assert.IsNotNull(indexBuildResults);
-                Assert.IsTrue(indexBuildResults.Completed > 0, "Should have been able to successfully build at least 1 index");
-                Assert.AreEqual(numberOfTargetIndexes, indexBuildResults.Completed, "Expected the number of built indexes to match the number of indexes defined in the assembly");
+                Assert.IsTrue(indexBuildResults.Created > 0, "Should have been able to successfully build at least 1 index");
+                Assert.AreEqual(numberOfTargetIndexes, indexBuildResults.Created, "Expected the number of built indexes to match the number of indexes defined in the assembly");
                 Assert.IsTrue(indexBuildResults.Cancelled == 0, "Should not have had any index building jobs cancelled");
                 Assert.IsTrue(indexBuildResults.Failed == 0, "Should not have had any index building jobs fail");
+                Assert.IsTrue(indexBuildResults.Deleted == 0, "Should not have deleted any indexes");
             }
             catch (InvalidOperationException ex)
             {
@@ -205,7 +242,7 @@ namespace Hircine.Core.Tests.Indexes
 
                 Assert.IsNotNull(indexBuildResult);
                 Assert.AreEqual(validMultiMapIndex.IndexName, indexBuildResult.IndexName);
-                Assert.AreEqual(BuildResult.Success, indexBuildResult.Result);
+                Assert.AreEqual(BuildResult.Created, indexBuildResult.Result);
             }
             catch (InvalidOperationException ex)
             {
@@ -232,7 +269,8 @@ namespace Hircine.Core.Tests.Indexes
             var indexBuilder = new IndexBuilder(embeddedDb, _indexAssembly);
             try
             {
-                var indexBuildResults = indexBuilder.Run(x =>
+                var indexBuildResults = indexBuilder.Run(new IndexBuildCommand(),
+                                                          x =>
                                                              {
                                                                  //Add the results to the list as the test runs
                                                                  listBuildResults.Add(x);
@@ -240,14 +278,15 @@ namespace Hircine.Core.Tests.Indexes
 
                 //Assert that the job was valid first
                 Assert.IsNotNull(indexBuildResults);
-                Assert.IsTrue(indexBuildResults.Completed > 0, "Should have been able to successfully build at least 1 index");
-                Assert.AreEqual(numberOfTargetIndexes, indexBuildResults.Completed, "Expected the number of built indexes to match the number of indexes defined in the assembly");
+                Assert.IsTrue(indexBuildResults.Created > 0, "Should have been able to successfully build at least 1 index");
+                Assert.AreEqual(numberOfTargetIndexes, indexBuildResults.Created, "Expected the number of built indexes to match the number of indexes defined in the assembly");
                 Assert.IsTrue(indexBuildResults.Cancelled == 0, "Should not have had any index building jobs cancelled");
                 Assert.IsTrue(indexBuildResults.Failed == 0, "Should not have had any index building jobs fail");
+                Assert.IsTrue(indexBuildResults.Deleted == 0, "Should not have deleted any indexes");
 
                 //Now assert that progress was reported correctly and completely
                 Assert.AreEqual(numberOfTargetIndexes, listBuildResults.Count , "Expected the number of calls against the progress method to be equal to the number of indexes in the assembly");
-                Assert.AreEqual(indexBuildResults.Completed, listBuildResults.Count, "Expected the number of calls against the progress method to be equal to the number of valid indexes built from the assembly, which should be ALL of them in this case");
+                Assert.AreEqual(indexBuildResults.Created, listBuildResults.Count, "Expected the number of calls against the progress method to be equal to the number of valid indexes built from the assembly, which should be ALL of them in this case");
             }
             catch (InvalidOperationException ex)
             {

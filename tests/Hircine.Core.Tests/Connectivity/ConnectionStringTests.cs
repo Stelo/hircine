@@ -1,5 +1,6 @@
 ﻿using Hircine.Core.Connectivity;
 using NUnit.Framework;
+using System.Net;
 
 namespace Hircine.Core.Tests.Connectivity
 {
@@ -67,8 +68,8 @@ namespace Hircine.Core.Tests.Connectivity
             var parsedConnectionString = RavenConnectionStringParser.ParseNetworkedDbOptions(connectionString);
 
             Assert.AreEqual(connectionStringUrl, parsedConnectionString.Url);
-            Assert.AreEqual(userName, parsedConnectionString.Credentials.UserName);
-            Assert.AreEqual(password, parsedConnectionString.Credentials.Password);
+            Assert.AreEqual(userName, ((NetworkCredential)parsedConnectionString.Credentials).UserName);
+            Assert.AreEqual(password, ((NetworkCredential)parsedConnectionString.Credentials).Password);
         }
 
         [Test(Description = "Should accept a connection sting that has a Url, a username / password, and a default database specified")]
@@ -85,8 +86,8 @@ namespace Hircine.Core.Tests.Connectivity
             var parsedConnectionString = RavenConnectionStringParser.ParseNetworkedDbOptions(connectionString);
 
             Assert.AreEqual(connectionStringUrl, parsedConnectionString.Url);
-            Assert.AreEqual(userName, parsedConnectionString.Credentials.UserName);
-            Assert.AreEqual(password, parsedConnectionString.Credentials.Password);
+            Assert.AreEqual(userName, ((NetworkCredential)parsedConnectionString.Credentials).UserName);
+            Assert.AreEqual(password, ((NetworkCredential)parsedConnectionString.Credentials).Password);
             Assert.AreEqual(defaultDb, parsedConnectionString.DefaultDatabase);
         }
 

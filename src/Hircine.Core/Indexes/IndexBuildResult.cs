@@ -19,9 +19,9 @@ namespace Hircine.Core.Indexes
         /// <summary>
         /// Total number of indexes successfully created
         /// </summary>
-        public int Completed
+        public int Created
         {
-            get { return BuildResults.Count(x => x.Result == BuildResult.Success); }
+            get { return BuildResults.Count(x => x.Result == BuildResult.Created); }
         }
 
         /// <summary>
@@ -38,6 +38,14 @@ namespace Hircine.Core.Indexes
         public int Failed
         {
             get { return BuildResults.Count(x => x.Result == BuildResult.Failed); }
+        }
+
+        /// <summary>
+        /// Total number of indexes successfully deleted
+        /// </summary>
+        public int Deleted
+        {
+            get { return BuildResults.Count(x => x.Result == BuildResult.Deleted); }
         }
 
         public IndexBuildReport()
@@ -74,8 +82,9 @@ namespace Hircine.Core.Indexes
 
     public enum BuildResult
     {
-        Success = 0,
+        Created = 0,
         Failed = 1,
-        Cancelled = 2
+        Cancelled = 2,
+        Deleted = 3
     };
 }

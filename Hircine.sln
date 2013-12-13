@@ -1,6 +1,8 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 2012
+# Visual Studio 2013
+VisualStudioVersion = 12.0.21005.1
+MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Hircine.Console", "src\Hircine.Console\Hircine.Console.csproj", "{56C66EEE-5956-40E1-8D45-924764A0114B}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Hircine.Core", "src\Hircine.Core\Hircine.Core.csproj", "{6645B93A-D5DB-40E0-A3A4-7858C6B49327}"
@@ -15,6 +17,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 	ProjectSection(SolutionItems) = preProject
 		src\SharedAssemblyInfo.cs = src\SharedAssemblyInfo.cs
 	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Hircine.VersionedIndex", "Hircine.VersionedIndex\Hircine.VersionedIndex.csproj", "{5FE92CDD-4724-47D0-95F1-2DA5F9592CE7}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -76,6 +80,16 @@ Global
 		{36ADAF25-8D58-4A97-8929-25223764C0D9}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
 		{36ADAF25-8D58-4A97-8929-25223764C0D9}.Release|Mixed Platforms.Build.0 = Release|Any CPU
 		{36ADAF25-8D58-4A97-8929-25223764C0D9}.Release|x86.ActiveCfg = Release|Any CPU
+		{5FE92CDD-4724-47D0-95F1-2DA5F9592CE7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5FE92CDD-4724-47D0-95F1-2DA5F9592CE7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5FE92CDD-4724-47D0-95F1-2DA5F9592CE7}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
+		{5FE92CDD-4724-47D0-95F1-2DA5F9592CE7}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
+		{5FE92CDD-4724-47D0-95F1-2DA5F9592CE7}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{5FE92CDD-4724-47D0-95F1-2DA5F9592CE7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5FE92CDD-4724-47D0-95F1-2DA5F9592CE7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5FE92CDD-4724-47D0-95F1-2DA5F9592CE7}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
+		{5FE92CDD-4724-47D0-95F1-2DA5F9592CE7}.Release|Mixed Platforms.Build.0 = Release|Any CPU
+		{5FE92CDD-4724-47D0-95F1-2DA5F9592CE7}.Release|x86.ActiveCfg = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

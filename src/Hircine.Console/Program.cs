@@ -110,7 +110,7 @@ namespace Hircine.Console
 
                 var results = indexJobManager.Build(result =>
                                                         {
-                                                            if (result.Result == BuildResult.Success)
+                                                            if (result.Result == BuildResult.Created)
                                                             {
                                                                 WriteSuccess();
                                                                 System.Console.WriteLine(
@@ -131,7 +131,7 @@ namespace Hircine.Console
                                                             }
                                                         });
 
-                if (results.Sum(x => x.Completed) == results.Sum(x => x.BuildResults.Count))
+                if (results.Sum(x => x.Created) == results.Sum(x => x.BuildResults.Count))
                 {
                     WriteSuccess();
                     System.Console.WriteLine("Success");
