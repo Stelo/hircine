@@ -5,6 +5,7 @@ using System.Reflection;
 using Hircine.Core.Connectivity;
 using Hircine.Core.Indexes;
 using Hircine.Core.Runtime;
+using Hircine.TestIndexes.Indexes;
 using NUnit.Framework;
 using Raven.Client.Indexes;
 using Hircine.VersionedIndex;
@@ -126,38 +127,6 @@ namespace Hircine.Core.Tests.Indexes
             }
         }
 
-        public class ValidMultiMapReduceVersionedIndex : AbstractMultiMapIndexCreationTask<TotalDocumentsWithTagPerDay>
-        {
-            public ValidMultiMapReduceVersionedIndex()
-            {
-                AddMap<SimpleModel>(models => from model in models
-                                              select new
-                                              {
-                                                  Tag = model.Tag,
-                                                  Day = model.DateCreated.Date,
-                                                  Total = 1
-                                              });
-
-                AddMap<OtherSimpleModel>(models => from model in models
-                                                   select new
-                                                   {
-                                                       Tag = model.Tag,
-                                                       Day = model.DateCreated.Date,
-                                                       Total = 1
-                                                   });
-
-                Reduce = results => from result in results
-                                    group result by new { result.Day, result.Tag }
-                                        into g
-                                        select new
-                                        {
-                                            Tag = g.Key.Tag,
-                                            Day = g.Key.Day,
-                                            Total = g.Sum(x => x.Total)
-                                        };
-            }
-        }
-
         #endregion
 
         #region Tests
@@ -171,14 +140,11 @@ namespace Hircine.Core.Tests.Indexes
 
             var embeddedDb = _ravenInstanceFactory.GetEmbeddedInstance(runInMemory: true);
             embeddedDb.Initialize();
-
-            var databaseStats = embeddedDb.DatabaseCommands.GetStatistics();
-            var versionedIndexes = AssemblyRuntimeLoader.GetRavenDbVersionedIndexes(_indexAssembly);
-
+            
             var indexBuilder = new IndexBuilder(embeddedDb, _indexAssembly);
             try
             {
-                var indexBuildResults = indexBuilder.Run(new IndexBuildCommand() { DropInactiveVersionedIndexes = true }, null);
+                var indexBuildResults = indexBuilder.Run(new IndexBuildCommand(), null);
                 Assert.IsNotNull(indexBuildResults);
                 Assert.IsTrue(indexBuildResults.Created > 0, "Should have been able to successfully build at least 1 index");
                 Assert.AreEqual(numberOfTargetIndexes, indexBuildResults.Created, "Expected the number of built indexes to match the number of indexes defined in the assembly");
@@ -237,12 +203,152 @@ namespace Hircine.Core.Tests.Indexes
 
             try
             {
-
                 var indexBuildResult = indexBuilder.BuildIndex(validMultiMapIndex);
 
                 Assert.IsNotNull(indexBuildResult);
                 Assert.AreEqual(validMultiMapIndex.IndexName, indexBuildResult.IndexName);
                 Assert.AreEqual(BuildResult.Created, indexBuildResult.Result);
+            }
+            catch (InvalidOperationException ex)
+            {
+                Assert.Fail(ex.Message);
+            }
+            finally
+            {
+                indexBuilder.Dispose();
+            }
+        }
+
+        [Test(Description = "Versioning isn't explicitly required; unversioned indexes should still be created but should not generate VersionedIndexLogs")]
+        public void Unversioned_Index_Creation_Does_Not_Create_VersionIndexLog()
+        {
+            var unversionedIndex = new BlogPostsByAuthor();
+            var embeddedDb = _ravenInstanceFactory.GetEmbeddedInstance(runInMemory: true);
+            embeddedDb.Initialize();
+
+            var indexBuilder = new IndexBuilder(embeddedDb, _indexAssembly);
+
+            try
+            {
+                var indexBuildResult = indexBuilder.BuildIndex(unversionedIndex);
+
+                Assert.IsNotNull(indexBuildResult);
+                Assert.AreEqual(unversionedIndex.IndexName, indexBuildResult.IndexName);
+                Assert.AreEqual(BuildResult.Created, indexBuildResult.Result);
+
+                using (var session = embeddedDb.OpenSession())
+                {
+                    var logs = session.Query<VersionedIndexLog>();
+                    Assert.IsEmpty(logs);
+                }
+            }
+            catch (InvalidOperationException ex)
+            {
+                Assert.Fail(ex.Message);
+            }
+            finally
+            {
+                indexBuilder.Dispose();
+            }
+
+        }
+
+        [Test, Description("Should generate logs for each cumulate update to the same index.")]
+        public void Versioned_Index_Creation_Creates_VersionIndexLog_For_Each_Update()
+        {
+            var versionedIndex = new BlogPostsByAuthorVersion100();
+            var versionedIndex2 = new BlogPostsByAuthorVersion110();
+
+            var embeddedDb = _ravenInstanceFactory.GetEmbeddedInstance(runInMemory: true);
+            embeddedDb.Initialize();
+
+            var indexBuilder = new IndexBuilder(embeddedDb, _indexAssembly);
+
+            try
+            {
+                var indexBuildResult = indexBuilder.BuildIndex(versionedIndex);
+                Assert.IsNotNull(indexBuildResult);
+                Assert.AreEqual(versionedIndex.IndexName, indexBuildResult.IndexName);
+                Assert.AreEqual(BuildResult.Created, indexBuildResult.Result);
+
+                using (var session = embeddedDb.OpenSession())
+                {
+                    var logs = session.Query<VersionedIndexLog>().ToList();
+                    Assert.AreEqual(1, logs.Count);
+
+                    Assert.AreEqual(versionedIndex.IndexName, logs[0].IndexName);
+
+                    Assert.AreEqual(1, logs[0].Version.Major);
+                    Assert.AreEqual(0, logs[0].Version.Minor);
+                    Assert.AreEqual(0, logs[0].Version.Revision);
+                }
+
+                var indexBuildResult2 = indexBuilder.BuildIndex(versionedIndex2);
+                Assert.IsNotNull(indexBuildResult2);
+                Assert.AreEqual(versionedIndex2.IndexName, indexBuildResult2.IndexName);
+                Assert.AreEqual(BuildResult.Created, indexBuildResult2.Result);
+
+                using (var session = embeddedDb.OpenSession())
+                {
+                    var logs = session.Query<VersionedIndexLog>().ToList();
+                    Assert.AreEqual(2, logs.Count());
+
+                    var logId = VersionedIndexLog.GenerateIdPrefix(versionedIndex2.IndexName) + "01.01.00";
+                    var newLog = session.Load<VersionedIndexLog>(logId);
+
+                    Assert.AreEqual(versionedIndex.IndexName, newLog.IndexName);
+
+                    Assert.AreEqual(1, newLog.Version.Major);
+                    Assert.AreEqual(1, newLog.Version.Minor);
+                    Assert.AreEqual(0, newLog.Version.Revision);
+                }
+
+            }
+            catch (InvalidOperationException ex)
+            {
+                Assert.Fail(ex.Message);
+            }
+            finally
+            {
+                indexBuilder.Dispose();
+            }
+        }
+
+        [Test, Description("Should not execute index change when version is the same.")]
+        public void Versioned_Index_Is_Not_Created_When_Log_Exists_For_Same_Version()
+        {
+            var versionedIndex = new BlogPostsByAuthorVersion100();
+            var sameVersionIndex = new BlogPostsByAuthorVersion100_DefinitionChangeWithoutVersionChange();
+
+            var embeddedDb = _ravenInstanceFactory.GetEmbeddedInstance(runInMemory: true);
+            embeddedDb.Initialize();
+
+            var indexBuilder = new IndexBuilder(embeddedDb, _indexAssembly);
+
+            try
+            {
+                var indexBuildResult = indexBuilder.BuildIndex(versionedIndex);
+                Assert.IsNotNull(indexBuildResult);
+                Assert.AreEqual(versionedIndex.IndexName, indexBuildResult.IndexName);
+                Assert.AreEqual(BuildResult.Created, indexBuildResult.Result);
+
+
+                var indexBuildResult2 = indexBuilder.BuildIndex(sameVersionIndex);
+                Assert.IsNotNull(indexBuildResult2);
+                Assert.AreEqual(BuildResult.VersionCheckFailed, indexBuildResult2.Result);
+
+                using (var session = embeddedDb.OpenSession())
+                {
+                    var logs = session.Query<VersionedIndexLog>().ToList();
+                    Assert.AreEqual(1, logs.Count);
+
+                    Assert.AreEqual(versionedIndex.IndexName, logs[0].IndexName);
+
+                    Assert.AreEqual(1, logs[0].Version.Major);
+                    Assert.AreEqual(0, logs[0].Version.Minor);
+                    Assert.AreEqual(0, logs[0].Version.Revision);
+                }
+
             }
             catch (InvalidOperationException ex)
             {
@@ -264,17 +370,28 @@ namespace Hircine.Core.Tests.Indexes
             var embeddedDb = _ravenInstanceFactory.GetEmbeddedInstance(runInMemory: true);
             embeddedDb.Initialize();
 
-            var listBuildResults = new List<IndexBuildResult>();
+            var indexV110LogId = VersionedIndexLog.GenerateIdPrefix("BlogPostsByAuthor") + "01.01.00";
 
+            // Mock creation log of v1.0.0 of BlogPostsByAuthor index so it gets skipped
+            using (var session = embeddedDb.OpenSession())
+            {
+                numberOfTargetIndexes = numberOfTargetIndexes - 2;
+                session.Store(new VersionedIndexLog("BlogPostsByAuthor", new IndexVersion(1,0,0)));
+                session.SaveChanges();
+
+                var shouldntExistYet = session.Load<VersionedIndexLog>(indexV110LogId);
+                Assert.IsNull(shouldntExistYet);
+            }
+
+            var listBuildResults = new List<IndexBuildResult>();
             var indexBuilder = new IndexBuilder(embeddedDb, _indexAssembly);
             try
             {
-                var indexBuildResults = indexBuilder.Run(new IndexBuildCommand(),
-                                                          x =>
-                                                             {
-                                                                 //Add the results to the list as the test runs
-                                                                 listBuildResults.Add(x);
-                                                             });
+                var indexBuildResults = indexBuilder.Run(new IndexBuildCommand(), x =>
+                {
+                    //Add the results to the list as the test runs
+                    listBuildResults.Add(x);
+                });
 
                 //Assert that the job was valid first
                 Assert.IsNotNull(indexBuildResults);
@@ -283,10 +400,22 @@ namespace Hircine.Core.Tests.Indexes
                 Assert.IsTrue(indexBuildResults.Cancelled == 0, "Should not have had any index building jobs cancelled");
                 Assert.IsTrue(indexBuildResults.Failed == 0, "Should not have had any index building jobs fail");
                 Assert.IsTrue(indexBuildResults.Deleted == 0, "Should not have deleted any indexes");
+                Assert.IsTrue(indexBuildResults.VersionCheckFailed == 2, "Should have failed version check on one index");
 
                 //Now assert that progress was reported correctly and completely
                 Assert.AreEqual(numberOfTargetIndexes, listBuildResults.Count , "Expected the number of calls against the progress method to be equal to the number of indexes in the assembly");
                 Assert.AreEqual(indexBuildResults.Created, listBuildResults.Count, "Expected the number of calls against the progress method to be equal to the number of valid indexes built from the assembly, which should be ALL of them in this case");
+
+                using (var session = embeddedDb.OpenSession())
+                {
+                    var newLog = session.Load<VersionedIndexLog>(indexV110LogId);
+
+                    Assert.AreEqual("BlogPostsByAuthor", newLog.IndexName);
+
+                    Assert.AreEqual(1, newLog.Version.Major);
+                    Assert.AreEqual(1, newLog.Version.Minor);
+                    Assert.AreEqual(0, newLog.Version.Revision);
+                }
             }
             catch (InvalidOperationException ex)
             {

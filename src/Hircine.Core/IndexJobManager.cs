@@ -55,10 +55,7 @@ namespace Hircine.Core
                 {
                     foreach (var connection in BuildInstructions.ConnectionStrings)
                     {
-                        var parsedConnectionString = RavenConnectionStringParser.ParseNetworkedDbOptions(connection);
-
                         var instance = _ravenInstanceFactory.GetRavenConnection(connection);
-                        instance.DatabaseCommands.EnsureDatabaseExists(parsedConnectionString.DefaultDatabase);
                         instance.Initialize();
                         instance.JsonRequestFactory.
                             EnableBasicAuthenticationOverUnsecuredHttpEvenThoughPasswordsWouldBeSentOverTheWireInClearTextToBeStolenByHackers = BuildInstructions.UseUserNamePasswordWithoutSSL;
@@ -67,6 +64,12 @@ namespace Hircine.Core
                     }
                 }
             }
+        }
+
+        private static bool DatabaseExists(IDocumentStore documentStore, string databaseName)
+        {
+            var headers = documentStore.DatabaseCommands.Head("Raven/Databases/" + databaseName);
+            return headers != null;
         }
 
         /// <summary>

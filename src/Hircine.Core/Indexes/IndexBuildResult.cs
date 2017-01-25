@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Hircine.VersionedIndex;
 
 namespace Hircine.Core.Indexes
 {
@@ -48,6 +49,11 @@ namespace Hircine.Core.Indexes
             get { return BuildResults.Count(x => x.Result == BuildResult.Deleted); }
         }
 
+        public int VersionCheckFailed
+        {
+            get { return BuildResults.Count(x => x.Result == BuildResult.VersionCheckFailed); }
+        }
+
         public IndexBuildReport()
         {
             BuildResults = new List<IndexBuildResult>();
@@ -75,6 +81,11 @@ namespace Hircine.Core.Indexes
         public BuildResult Result { get; set; }
 
         /// <summary>
+        /// The version of the index that was built
+        /// </summary>
+        public IndexVersion Version { get; set; }
+
+        /// <summary>
         /// Any exceptions which were raised in the course of building the index
         /// </summary>
         public Exception BuildException { get; set; }
@@ -85,6 +96,7 @@ namespace Hircine.Core.Indexes
         Created = 0,
         Failed = 1,
         Cancelled = 2,
-        Deleted = 3
+        Deleted = 3,
+        VersionCheckFailed = 4
     };
 }
